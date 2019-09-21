@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=900, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Show off</title>
+  <link href="https://fonts.googleapis.com/css?family=Noto+Serif&display=swap" rel="stylesheet">
+  <style>
+    body {
+      position:fixed;
+      height:100%;
+      width:100%;
+      margin:0;
+    }
+    #input {
+      position: absolute;
+      left:10px;
+      right:10px;
+      top:10px;
+      bottom:10px;
+      font-size:25px;
+      padding:10px;
+      font-family: 'Noto Serif', serif;
+    }
+  </style>
+  <script>
+    if(!localStorage['cats']){
+        fetch('./abbrevs')
+            .then(r => r.text())
+            .then(d => {
+                let rows = d.split(/\r?\n/)
+                for(var row, i = 0; row=rows[i]; i++){
+                    var [word, abbrevs] = row.split(':')
+                    localStorage[word] = abbrevs
+                }
+            })
+    }
+  </script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const patch = {
+      jk:'think',
+      jt:'that',
+      wj:'with',
+      jir:'their',
+      jr:'there',
+      i:'I',
+    }
+  </script>
+</head>
+<body>
+  <div contenteditable="true" id="input" autocapitalize="sentences"></div>
+  <script>
+    var sel = getSelection()
+    var input = document.getElementById('input')
+
+    let socket = io()
+
+    input.addEventListener('keydown',e => {
+      // console.log(e.key, e.shiftKey)
+      // var txt = input.childNodes[0]
+      var lword = last()
+      // var rword = next()
+      if(e.key==' ' && lword){
+        if(/\w\s$/.test(lword))
+          splice(-1, 1,'.')
+        if(/1\s$/.test(lword))
+          splice(-2, 2,'! ')
+        if(/\/\s$/.test(lword))
+          splice(-2, 2,'? ')
+        else if(/\.\.$/.test(lword))
+          splice(-2, 2, '')
+        else if(/^\./.test(lword))
+          splice(-lword.length, lword.length, lword.slice(1))
+        else if(lword in localStorage || lword in patch){
+          var opt = patch[lword] || localStorage[lword]
+          var fst = opt.split(',')[0]
+          splice(-lword.length, lword.length, fst)
+        }
+      }
+      if(e.key==';'){
+        if(/\w$/.test(lword)){
+          splice(0,0,';')
+          select(-lword.length-1,0)
+        } else if(lword)
+          select(-lword.length,0)  
+        e.preventDefault()
+      }
+      if(e.key==':'){
+        if(lword)
+          select(0,-lword.length)
+        e.preventDefault()
+      }
+      // if(e.key=='\n'){}
+      socket.emit('msg',input.textContent)
+    })
+
+    function splice(pos, del, val){
+      let sel = window.getSelection()
+      let offset = sel.focusOffset
+      let focus = sel.focusNode;
+        
+      pos = offset + pos
+
+      focus.replaceData(pos, del, val)
+      
+      let range = document.createRange()
+      range.selectNode(focus)
+      range.setStart(focus,offset+(val.length-del))
+      range.collapse(true)
+
+      sel.empty()
+      sel.addRange(range)
+    }
+
+    function select(aoff, foff){
+      let sel = window.getSelection()
+
+      let range = document.createRange()
+      range.setStart(sel.anchorNode, sel.anchorOffset+aoff)
+      range.setEnd(sel.focusNode, sel.focusOffset+foff)
+      
+      sel.empty()
+      sel.addRange(range)
+
+      // sel.setBaseAndExtent(
+      //   sel.anchorNode,
+      //   sel.anchorOffset+aoff,
+      //   sel.focusNode,
+      //   sel.focusOffset+foff,
+      // )
+    }
+
+    function last(){
+      let sel = window.getSelection()
+      if(!sel.anchorNode || !sel.anchorNode.substringData)
+        return null
+      var m = sel.anchorNode.substringData(0,sel.anchorOffset).match(/\S+\s*$/)
+      return m && m[0]
+    }
+
+    // function next(){
+    //   let node, offset, sel = window.getSelection()
+    //   if(sel.focusOffset < sel.anchorOffset){
+    //     node = sel.anchorNode
+    //     offset = sel.anchorOffset
+    //   } else {
+    //     node = sel.focusNode
+    //     offset = sel.focusOffset
+    //   }
+    //   if(!node || !node.substringData)
+    //     return null
+    //   var m = node.substringData(offset, node.length-offset).match(/^\s*\S+/)
+    //   // console.log(`"${m}" "${m.match(/^\s*\S+/)}"`)
+    //   return m && m[0]
+    // }
+
+  </script>
+</body>
+</html>
